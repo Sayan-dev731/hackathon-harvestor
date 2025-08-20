@@ -4,11 +4,17 @@ const cheerio = require('cheerio');
 
 class GeminiService {
     constructor() {
-        if (!process.env.GEMINI_API_KEY) {
-            throw new Error('GEMINI_API_KEY is required');
+        // Support both GEMINI_API_KEY and API_KEY environment variables
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+        if (!apiKey) {
+            throw new Error('GEMINI_API_KEY or API_KEY environment variable is required');
         }
-        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        
+        // Use object parameter format for better compatibility
+        this.genAI = new GoogleGenerativeAI({ apiKey: apiKey });
+        
+        // Use correct model name - gemini-1.5-flash is more widely available than gemini-2.5-flash
+        this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
         this.promptTemplate = `
         You are an expert hackathon data extraction system. Your task is to analyze website content and extract ALL hackathons, competition-related information in a comprehensive JSON format.
 
@@ -269,6 +275,8 @@ class GeminiService {
             console.log(`Making Gemini API request for: ${sourceUrl}`);
             console.log(`Content length: ${content.textContent.length} characters`);
             console.log(`Headings found: ${content.structuredData.headings.length}`);
+            console.log(`API Key configured: ${this.genAI ? 'Yes' : 'No'}`);
+            console.log(`Model: ${this.model._model || 'Unknown'}`);
 
             // Make the API request
             const result = await this.model.generateContent(prompt);
@@ -331,6 +339,28 @@ class GeminiService {
 
         } catch (error) {
             console.error('Error analyzing content with Gemini:', error.message);
+            
+            // Enhanced error debugging for API issues
+            if (error.status) {
+                console.error(`HTTP Status: ${error.status}`);
+            }
+            if (error.code) {
+                console.error(`Error Code: ${error.code}`);
+            }
+            if (error.details) {
+                console.error(`Error Details:`, error.details);
+            }
+            
+            // Specific handling for PERMISSION_DENIED errors
+            if (error.message.includes('PERMISSION_DENIED')) {
+                console.error('🚨 PERMISSION_DENIED Error - Troubleshooting Guide:');
+                console.error('1. Verify your API key is valid and active');
+                console.error('2. Check that the Generative AI API is enabled in your Google Cloud project');
+                console.error('3. Ensure billing is enabled for your project');
+                console.error('4. Verify the API key has the correct permissions');
+                console.error('5. Check if there are any IP restrictions on the API key');
+            }
+            
             console.error('Full error:', error);
             // Log failed API request
             await this.logApiRequest(sourceUrl, false);
@@ -595,6 +625,54 @@ class GeminiService {
             }
         } catch (error) {
             console.error('Error logging API request:', error);
+        }
+    }
+
+    // Test API connectivity with a simple prompt
+    async testConnection() {
+        try {
+            console.log('🔍 Testing Gemini API connection...');
+            
+            const testPrompt = "Please respond with exactly: 'API connection successful'";
+            
+            console.log('Making test API call...');
+            const result = await this.model.generateContent(testPrompt);
+            const response = await result.response;
+            const text = response.text();
+            
+            console.log('✅ Test API call successful');
+            console.log('Response:', text.substring(0, 100));
+            
+            return {
+                success: true,
+                response: text,
+                timestamp: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            console.error('❌ Test API call failed:', error.message);
+            
+            // Enhanced error information for debugging
+            const errorInfo = {
+                success: false,
+                error: error.message,
+                status: error.status || null,
+                code: error.code || null,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Add specific troubleshooting for PERMISSION_DENIED
+            if (error.message.includes('PERMISSION_DENIED')) {
+                errorInfo.troubleshooting = [
+                    'Verify API key is valid and active',
+                    'Check Generative AI API is enabled in Google Cloud project',
+                    'Ensure billing is enabled for the project',
+                    'Verify API key permissions',
+                    'Check for IP restrictions on the API key'
+                ];
+            }
+            
+            return errorInfo;
         }
     }
 

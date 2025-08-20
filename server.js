@@ -12,9 +12,25 @@ const adminRoutes = require('./routes/admin');
 const ScrapingService = require('./services/scrapingService');
 const GeminiService = require('./services/geminiService');
 
-// Initialize services
-const scrapingService = new ScrapingService();
-const geminiService = new GeminiService();
+// Initialize services only if environment is properly configured
+let scrapingService = null;
+let geminiService = null;
+
+function initializeServices() {
+    try {
+        if (!scrapingService) {
+            scrapingService = new ScrapingService();
+        }
+        if (!geminiService) {
+            geminiService = new GeminiService();
+        }
+        return true;
+    } catch (error) {
+        console.error('Service initialization failed:', error.message);
+        console.error('Services will be initialized when first needed');
+        return false;
+    }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,8 +51,15 @@ mongoose.connect(process.env.MONGODB_URI, {
     .then(() => {
         console.log('Connected to MongoDB Atlas');
 
-        // Start scheduled scraping
-        scrapingService.startScheduledScraping();
+        // Initialize services and start scheduled scraping if successful
+        const servicesInitialized = initializeServices();
+        if (servicesInitialized && scrapingService) {
+            scrapingService.startScheduledScraping();
+            console.log('Scheduled scraping started');
+        } else {
+            console.warn('Services not initialized - scheduled scraping will not start');
+            console.warn('Please check your environment configuration (API keys, etc.)');
+        }
     })
     .catch((error) => {
         console.error('MongoDB connection error:', error);
