@@ -28,11 +28,18 @@ A modern, AI-powered hackathon aggregator that automatically discovers and displ
 Create a `.env` file in the root directory with:
 
 ```env
-MONGODB_URI=
+MONGODB_URI=mongodb://localhost:27017/hackathon-aggregator
 GEMINI_API_KEY=your_gemini_api_key_here
 PORT=3000
 DAILY_REQUEST_LIMIT=1000
 ```
+
+**Tip**: Copy `.env.example` to `.env` and update the values:
+```bash
+cp .env.example .env
+```
+
+**Note**: You can use either `GEMINI_API_KEY` or `API_KEY` environment variable.
 
 ### 2. Get Google Gemini API Key
 
