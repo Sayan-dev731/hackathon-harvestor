@@ -1,0 +1,31 @@
+{
+    "name": "hackathon-aggregator",
+    "version": "1.0.0",
+    "description": "Modern hackathon aggregator with AI-powered scraping",
+    "main": "server.js",
+    "scripts": {
+        "dev": "nodemon server.js",
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "mongoose": "^7.6.3",
+        "axios": "^1.5.1",
+        "cheerio": "^1.0.0-rc.12",
+        "dotenv": "^16.3.1",
+        "cors": "^2.8.5",
+        "node-cron": "^3.0.2",
+        "@google/generative-ai": "^0.2.1"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.1"
+    },
+    "keywords": [
+        "hackathon",
+        "aggregator",
+        "web-scraping",
+        "ai"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
+}

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hackathon Aggregator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-trophy"></i>
+                <span>Hackathon Hub</span>
+            </div>
+            <div class="nav-menu">
+                <a href="#" onclick="showHome()" class="nav-link active">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <a href="#" onclick="showAdmin()" class="nav-link">
+                    <i class="fas fa-cog"></i> Admin
+                </a>
+                <div class="nav-stats">
+                    <span id="hackathon-count">0</span> Hackathons
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Section -->
+        <section id="home-section" class="section active">
+            <!-- Hero Section -->
+            <div class="hero">
+                <div class="hero-content">
+                    <h1>Discover Amazing Hackathons</h1>
+                    <p>Find and participate in hackathons from around the world. All in one place, powered by AI.</p>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <span id="total-hackathons">0</span>
+                            <label>Total Events</label>
+                        </div>
+                        <div class="stat">
+                            <span id="upcoming-hackathons">0</span>
+                            <label>Upcoming</label>
+                        </div>
+                        <div class="stat">
+                            <span id="ongoing-hackathons">0</span>
+                            <label>Ongoing</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <div class="filter-row">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-input" placeholder="Search hackathons, themes, organizers...">
+                    </div>
+                    <button class="filter-btn" onclick="toggleFilters()">
+                        <i class="fas fa-filter"></i> Filters
+                    </button>
+                </div>
+
+                <div class="filter-panel" id="filter-panel">
+                    <div class="filter-group">
+                        <label>Status:</label>
+                        <select id="status-filter">
+                            <option value="all">All Status</option>
+                            <option value="upcoming">Upcoming</option>
+                            <option value="ongoing">Ongoing</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Mode:</label>
+                        <select id="mode-filter">
+                            <option value="all">All Modes</option>
+                            <option value="Online">Online</option>
+                            <option value="Offline">Offline</option>
+                            <option value="Hybrid">Hybrid</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Start Date:</label>
+                        <input type="date" id="start-date-filter">
+                    </div>
+
+                    <div class="filter-group">
+                        <label>End Date:</label>
+                        <input type="date" id="end-date-filter">
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Sort By:</label>
+                        <select id="sort-filter">
+                            <option value="startDate-asc">Start Date (Earliest)</option>
+                            <option value="startDate-desc">Start Date (Latest)</option>
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                    <button class="btn btn-secondary" onclick="clearFilters()">Clear All</button>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Loading hackathons...</p>
+            </div>
+
+            <!-- Hackathons Grid -->
+            <div class="hackathons-grid" id="hackathons-grid">
+                <!-- Hackathon cards will be populated here -->
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <!-- Pagination will be populated here -->
+            </div>
+        </section>
+
+        <!-- Admin Section -->
+        <section id="admin-section" class="section">
+            <div class="admin-header">
+                <h2>Admin Dashboard</h2>
+                <div class="admin-stats">
+                    <div class="admin-stat">
+                        <span id="api-usage">0%</span>
+                        <label>API Usage Today</label>
+                    </div>
+                    <div class="admin-stat">
+                        <span id="remaining-requests">0</span>
+                        <label>Remaining Requests</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Website Form -->
+            <div class="admin-card">
+                <h3>Add New Website</h3>
+                <form id="add-website-form" class="admin-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="website-name">Website Name *</label>
+                            <input type="text" id="website-name" required placeholder="e.g., DevPost Hackathon">
+                        </div>
+                        <div class="form-group">
+                            <label for="website-url">Website URL *</label>
+                            <input type="url" id="website-url" required placeholder="https://example.com">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="website-start-date">Start Date *</label>
+                            <input type="date" id="website-start-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="website-end-date">End Date *</label>
+                            <input type="date" id="website-end-date" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="website-notes">Notes</label>
+                        <textarea id="website-notes" placeholder="Optional notes about this website"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Website
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="triggerScrapeAll()">
+                            <i class="fas fa-sync"></i> Scrape All Websites
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Direct URL Extraction -->
+            <div class="admin-card">
+                <h3>Extract Hackathons from URL</h3>
+                <p class="card-description">Extract hackathon data directly from any URL using AI and save it to the
+                    database.</p>
+                <form id="extract-url-form" class="admin-form">
+                    <div class="form-group">
+                        <label for="extract-url">Hackathon Website URL *</label>
+                        <input type="url" id="extract-url" required placeholder="https://example.com/hackathon-page">
+                        <small>Enter the URL of a page containing hackathon information</small>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-robot"></i> Extract & Save Hackathons
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="testGeminiExtraction()">
+                            <i class="fas fa-vial"></i> Test Extraction Only
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Extraction Results -->
+                <div id="extraction-results" class="extraction-results" style="display: none;">
+                    <h4>Extraction Results</h4>
+                    <div id="extraction-content"></div>
+                </div>
+            </div>
+
+            <!-- Websites List -->
+            <div class="admin-card">
+                <h3>Configured Websites</h3>
+                <div class="websites-list" id="websites-list">
+                    <!-- Website items will be populated here -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Hackathon Modal -->
+    <div class="modal" id="hackathon-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modal-body">
+                <!-- Modal content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
