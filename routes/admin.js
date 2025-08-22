@@ -4,9 +4,18 @@ const ScrapingService = require('../services/scrapingService');
 const GeminiService = require('../services/geminiService');
 const router = express.Router();
 
-// Initialize services
-const scrapingService = new ScrapingService();
-const geminiService = new GeminiService();
+// Function to get services (initialize only when needed)
+function getServices() {
+    try {
+        return {
+            scrapingService: new ScrapingService(),
+            geminiService: new GeminiService()
+        };
+    } catch (error) {
+        console.error('Service initialization error:', error.message);
+        throw error;
+    }
+}
 
 // Get all website configurations
 router.get('/websites', async (req, res) => {
@@ -126,6 +135,24 @@ router.post('/scrape-all', async (req, res) => {
 router.get('/scraping-status', async (req, res) => {
     try {
         console.log('Scraping status endpoint called');
+        
+        // Get services with error handling
+        let services;
+        try {
+            services = getServices();
+        } catch (serviceError) {
+            console.warn('Service initialization failed for scraping status:', serviceError.message);
+            // Return status without remaining requests if service fails
+            return res.json({
+                isRunning: false,
+                lastRun: null,
+                currentProgress: null,
+                error: 'Service initialization failed'
+            });
+        }
+        
+        const { scrapingService, geminiService } = services;
+        
         const status = scrapingService.getScrapingStatus();
         console.log('Got scraping status:', status);
         const remainingRequests = await geminiService.getRemainingRequests();
@@ -148,6 +175,21 @@ router.get('/scraping-status', async (req, res) => {
 router.get('/api-usage', async (req, res) => {
     try {
         console.log('API usage endpoint called');
+        
+        // Get services with error handling
+        let services;
+        try {
+            services = getServices();
+        } catch (serviceError) {
+            return res.status(500).json({
+                error: 'Service initialization failed',
+                details: serviceError.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        const { geminiService } = services;
+        
         const remainingRequests = await geminiService.getRemainingRequests();
         console.log('Got remaining requests:', remainingRequests);
         const dailyLimit = parseInt(process.env.DAILY_REQUEST_LIMIT) || 1000;
@@ -168,6 +210,68 @@ router.get('/api-usage', async (req, res) => {
     }
 });
 
+// Debug endpoint to test Gemini API connection
+router.post('/debug-gemini', async (req, res) => {
+    try {
+        console.log('Debug Gemini API endpoint called');
+        
+        // Get services with error handling
+        let services;
+        try {
+            services = getServices();
+        } catch (serviceError) {
+            return res.status(500).json({
+                success: false,
+                error: 'Service initialization failed',
+                details: serviceError.message,
+                troubleshooting: [
+                    'Check that GEMINI_API_KEY or API_KEY environment variable is set',
+                    'Verify the API key is valid',
+                    'Ensure all required environment variables are configured'
+                ],
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        const { geminiService } = services;
+        
+        // Test basic connection
+        const connectionTest = await geminiService.testConnection();
+        
+        // Get remaining requests
+        const remainingRequests = await geminiService.getRemainingRequests();
+        
+        // Collect configuration information (without exposing secrets)
+        const debugInfo = {
+            connectionTest,
+            apiConfiguration: {
+                hasApiKey: !!(process.env.GEMINI_API_KEY || process.env.API_KEY),
+                apiKeySource: process.env.GEMINI_API_KEY ? 'GEMINI_API_KEY' : process.env.API_KEY ? 'API_KEY' : 'None',
+                remainingRequests,
+                dailyLimit: parseInt(process.env.DAILY_REQUEST_LIMIT) || 1000
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        // Set appropriate status based on connection test
+        const status = connectionTest.success ? 200 : 500;
+        
+        res.status(status).json({
+            success: connectionTest.success,
+            debug: debugInfo
+        });
+
+    } catch (error) {
+        console.error('Error in debug endpoint:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Debug endpoint failed',
+            details: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Test Gemini service with a specific URL
 router.post('/test-gemini', async (req, res) => {
     try {
@@ -178,6 +282,23 @@ router.post('/test-gemini', async (req, res) => {
         }
 
         console.log(`Testing Gemini service with URL: ${url}`);
+
+        // Get services with error handling
+        let services;
+        try {
+            services = getServices();
+        } catch (serviceError) {
+            return res.status(500).json({
+                error: 'Service initialization failed',
+                details: serviceError.message,
+                troubleshooting: [
+                    'Check that GEMINI_API_KEY or API_KEY environment variable is set',
+                    'Verify the API key is valid'
+                ]
+            });
+        }
+
+        const { geminiService } = services;
 
         // Test the Gemini service directly
         const result = await geminiService.extractHackathonData(url);
@@ -208,6 +329,23 @@ router.post('/extract-and-save', async (req, res) => {
         }
 
         console.log(`Extracting and saving hackathon data from URL: ${url}`);
+
+        // Get services with error handling
+        let services;
+        try {
+            services = getServices();
+        } catch (serviceError) {
+            return res.status(500).json({
+                error: 'Service initialization failed',
+                details: serviceError.message,
+                troubleshooting: [
+                    'Check that GEMINI_API_KEY or API_KEY environment variable is set',
+                    'Verify the API key is valid'
+                ]
+            });
+        }
+
+        const { geminiService } = services;
 
         // Extract hackathon data using Gemini
         const result = await geminiService.extractHackathonData(url);
