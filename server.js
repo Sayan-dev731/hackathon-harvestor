@@ -7,14 +7,15 @@ const path = require('path');
 // Import routes
 const hackathonsRoutes = require('./routes/hackathons');
 const adminRoutes = require('./routes/admin');
+const searchRoutes = require('./routes/search');
 
 // Import services
-const ScrapingService = require('./services/scrapingService');
-const GeminiService = require('./services/geminiService');
+const ModernGeminiService = require('./services/modernGeminiService');
+const AutoFetchScheduler = require('./services/autoFetchScheduler');
 
 // Initialize services
-const scrapingService = new ScrapingService();
-const geminiService = new GeminiService();
+const geminiService = new ModernGeminiService();
+const autoFetchScheduler = new AutoFetchScheduler();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,9 +35,11 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
     .then(() => {
         console.log('Connected to MongoDB Atlas');
+        console.log('✅ Modern AI-powered hackathon search ready!');
 
-        // Start scheduled scraping
-        scrapingService.startScheduledScraping();
+        // Start auto-fetch scheduler
+        autoFetchScheduler.start();
+        console.log('🤖 Auto-fetch scheduler initialized');
     })
     .catch((error) => {
         console.error('MongoDB connection error:', error);
@@ -46,6 +49,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Routes
 app.use('/api/hackathons', hackathonsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/search', searchRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

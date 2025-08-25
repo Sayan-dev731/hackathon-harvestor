@@ -25,6 +25,9 @@ const websiteConfigSchema = new mongoose.Schema({
     lastScraped: {
         type: Date
     },
+    lastFetched: {
+        type: Date
+    },
     scrapeFrequency: {
         type: String,
         enum: ['daily', 'weekly', 'monthly'],

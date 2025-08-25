@@ -1,12 +1,11 @@
 const express = require('express');
 const WebsiteConfig = require('../models/websiteConfig');
-const ScrapingService = require('../services/scrapingService');
-const GeminiService = require('../services/geminiService');
+const Hackathon = require('../models/hackathon');
+const ModernGeminiService = require('../services/modernGeminiService');
 const router = express.Router();
 
 // Initialize services
-const scrapingService = new ScrapingService();
-const geminiService = new GeminiService();
+const geminiService = new ModernGeminiService();
 
 // Get all website configurations
 router.get('/websites', async (req, res) => {
@@ -93,78 +92,96 @@ router.delete('/websites/:id', async (req, res) => {
     }
 });
 
-// Manual scrape single website
-router.post('/scrape/:id', async (req, res) => {
+// Trigger AI search for hackathons
+router.post('/search/:category', async (req, res) => {
     try {
-        const { id } = req.params;
-        const result = await scrapingService.manualScrape(id);
+        const { category } = req.params;
+        const { query } = req.body;
 
-        if (result.success) {
-            res.json({ message: result.message });
+        let searchResult;
+        if (category === 'custom' && query) {
+            searchResult = await geminiService.searchHackathons(query);
         } else {
-            res.status(400).json({ error: result.message });
+            searchResult = await geminiService.searchByCategory(category);
+        }
+
+        if (searchResult.success) {
+            res.json({
+                message: `Found ${searchResult.data.hackathons.length} hackathons`,
+                data: searchResult.data
+            });
+        } else {
+            res.status(400).json({ error: searchResult.error });
         }
     } catch (error) {
-        console.error('Error manual scraping:', error);
-        res.status(500).json({ error: 'Failed to scrape website' });
+        console.error('Error in AI search:', error);
+        res.status(500).json({ error: 'Failed to search hackathons' });
     }
 });
 
-// Trigger scraping for all websites
-router.post('/scrape-all', async (req, res) => {
+// Trigger search for all popular categories
+router.post('/search-all-categories', async (req, res) => {
     try {
-        // Don't wait for completion, run in background
-        scrapingService.scrapeAllWebsites();
-        res.json({ message: 'Scraping started for all websites' });
+        const categories = ['ai-ml', 'blockchain', 'fintech', 'student', 'startup'];
+        const results = [];
+
+        for (const category of categories) {
+            try {
+                const result = await geminiService.searchByCategory(category);
+                if (result.success) {
+                    results.push({
+                        category,
+                        count: result.data.hackathons.length,
+                        success: true
+                    });
+                }
+            } catch (error) {
+                results.push({
+                    category,
+                    error: error.message,
+                    success: false
+                });
+            }
+        }
+
+        res.json({
+            message: 'AI search completed for all categories',
+            results
+        });
     } catch (error) {
-        console.error('Error starting scrape all:', error);
-        res.status(500).json({ error: 'Failed to start scraping' });
+        console.error('Error in batch AI search:', error);
+        res.status(500).json({ error: 'Failed to search all categories' });
     }
 });
 
-// Get scraping status
-router.get('/scraping-status', async (req, res) => {
+// Get AI search status and API usage
+router.get('/search-status', async (req, res) => {
     try {
-        console.log('Scraping status endpoint called');
-        const status = scrapingService.getScrapingStatus();
-        console.log('Got scraping status:', status);
-        const remainingRequests = await geminiService.getRemainingRequests();
-        console.log('Got remaining requests for status:', remainingRequests);
+        console.log('Search status endpoint called');
+        // For now, just return a simple status since we don't have the same tracking as scraping
+        const status = {
+            isRunning: false,
+            lastRun: new Date(),
+            totalSearches: 0,
+            errors: []
+        };
+
+        console.log('AI search status:', status);
+        // Note: Modern service doesn't track API requests the same way
+        const remainingRequests = 1000; // Default for demonstration
+        console.log('Estimated remaining requests:', remainingRequests);
 
         const response = {
             ...status,
-            remainingApiRequests: remainingRequests
+            remainingApiRequests: remainingRequests,
+            note: "Using modern AI-powered search instead of traditional scraping"
         };
-        console.log('Sending scraping status response:', response);
+        console.log('Sending search status response:', response);
 
         res.json(response);
     } catch (error) {
-        console.error('Error getting scraping status:', error);
+        console.error('Error getting search status:', error);
         res.status(500).json({ error: 'Failed to get scraping status', details: error.message });
-    }
-});
-
-// Get API usage statistics
-router.get('/api-usage', async (req, res) => {
-    try {
-        console.log('API usage endpoint called');
-        const remainingRequests = await geminiService.getRemainingRequests();
-        console.log('Got remaining requests:', remainingRequests);
-        const dailyLimit = parseInt(process.env.DAILY_REQUEST_LIMIT) || 1000;
-        const usedRequests = dailyLimit - remainingRequests;
-
-        const response = {
-            dailyLimit,
-            usedRequests,
-            remainingRequests,
-            usagePercentage: Math.round((usedRequests / dailyLimit) * 100)
-        };
-        console.log('Sending response:', response);
-
-        res.json(response);
-    } catch (error) {
-        console.error('Error getting API usage:', error);
-        res.status(500).json({ error: 'Failed to get API usage statistics', details: error.message });
     }
 });
 
@@ -299,6 +316,219 @@ router.post('/extract-and-save', async (req, res) => {
             details: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
+    }
+});
+
+// ==================== HACKATHON CRUD OPERATIONS ====================
+
+// Get all hackathons with pagination and search
+router.get('/hackathons', async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 50, // No limit restriction 
+            search = '',
+            status = '',
+            sortBy = 'startDate',
+            sortOrder = 'asc'
+        } = req.query;
+
+        const query = {};
+
+        // Add search filter
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+                { organizer: { $regex: search, $options: 'i' } },
+                { themes: { $in: [new RegExp(search, 'i')] } }
+            ];
+        }
+
+        // Add status filter
+        if (status) {
+            query.status = status;
+        }
+
+        const sort = {};
+        sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+        const hackathons = await Hackathon.find(query)
+            .sort(sort)
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit));
+
+        const total = await Hackathon.countDocuments(query);
+
+        res.json({
+            success: true,
+            data: hackathons,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(total / parseInt(limit)),
+                totalItems: total,
+                itemsPerPage: parseInt(limit)
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching hackathons:', error);
+        res.status(500).json({ error: 'Failed to fetch hackathons' });
+    }
+});
+
+// Get single hackathon by ID
+router.get('/hackathons/:id', async (req, res) => {
+    try {
+        const hackathon = await Hackathon.findById(req.params.id);
+
+        if (!hackathon) {
+            return res.status(404).json({ error: 'Hackathon not found' });
+        }
+
+        res.json({ success: true, data: hackathon });
+    } catch (error) {
+        console.error('Error fetching hackathon:', error);
+        res.status(500).json({ error: 'Failed to fetch hackathon' });
+    }
+});
+
+// Create new hackathon
+router.post('/hackathons', async (req, res) => {
+    try {
+        const hackathonData = req.body;
+
+        // Validate required fields
+        if (!hackathonData.name || !hackathonData.website || !hackathonData.startDate) {
+            return res.status(400).json({
+                error: 'Name, website, and start date are required'
+            });
+        }
+
+        // Check if website already exists
+        const existingHackathon = await Hackathon.findOne({ website: hackathonData.website });
+        if (existingHackathon) {
+            return res.status(400).json({ error: 'Hackathon with this website already exists' });
+        }
+
+        const hackathon = new Hackathon(hackathonData);
+        await hackathon.save();
+
+        res.status(201).json({
+            success: true,
+            data: hackathon,
+            message: 'Hackathon created successfully'
+        });
+    } catch (error) {
+        console.error('Error creating hackathon:', error);
+        res.status(500).json({ error: 'Failed to create hackathon' });
+    }
+});
+
+// Update hackathon
+router.put('/hackathons/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        // If website is being updated, check for duplicates
+        if (updates.website) {
+            const existingHackathon = await Hackathon.findOne({
+                website: updates.website,
+                _id: { $ne: id }
+            });
+            if (existingHackathon) {
+                return res.status(400).json({ error: 'Hackathon with this website already exists' });
+            }
+        }
+
+        const hackathon = await Hackathon.findByIdAndUpdate(
+            id,
+            { ...updates, lastUpdated: new Date() },
+            { new: true, runValidators: true }
+        );
+
+        if (!hackathon) {
+            return res.status(404).json({ error: 'Hackathon not found' });
+        }
+
+        res.json({
+            success: true,
+            data: hackathon,
+            message: 'Hackathon updated successfully'
+        });
+    } catch (error) {
+        console.error('Error updating hackathon:', error);
+        res.status(500).json({ error: 'Failed to update hackathon' });
+    }
+});
+
+// Delete hackathon
+router.delete('/hackathons/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const hackathon = await Hackathon.findByIdAndDelete(id);
+
+        if (!hackathon) {
+            return res.status(404).json({ error: 'Hackathon not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Hackathon deleted successfully',
+            data: { deletedId: id }
+        });
+    } catch (error) {
+        console.error('Error deleting hackathon:', error);
+        res.status(500).json({ error: 'Failed to delete hackathon' });
+    }
+});
+
+// ==================== API USAGE AND SCHEDULING ====================
+
+// Get API usage statistics
+router.get('/api-usage', async (req, res) => {
+    try {
+        const ApiUsage = require('../models/apiUsage');
+        const usage = await ApiUsage.getTodaysUsage();
+
+        res.json({
+            success: true,
+            data: {
+                currentUsage: usage.geminiApiCalls,
+                dailyLimit: usage.dailyLimit,
+                remaining: Math.max(0, usage.dailyLimit - usage.geminiApiCalls),
+                canMakeRequest: !usage.isLimitReached(),
+                resetTime: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString(),
+                autoFetchRuns: usage.autoFetchRuns,
+                lastAutoFetch: usage.lastAutoFetch
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching API usage:', error);
+        res.status(500).json({ error: 'Failed to fetch API usage statistics' });
+    }
+});
+
+// Trigger manual auto-fetch
+router.post('/trigger-auto-fetch', async (req, res) => {
+    try {
+        const AutoFetchScheduler = require('../services/autoFetchScheduler');
+        const scheduler = new AutoFetchScheduler();
+
+        // Run auto-fetch in background
+        scheduler.triggerManualFetch().then(() => {
+            console.log('Manual auto-fetch completed');
+        }).catch(error => {
+            console.error('Manual auto-fetch failed:', error);
+        });
+
+        res.json({
+            success: true,
+            message: 'Auto-fetch triggered successfully. Check back in a few minutes for results.'
+        });
+    } catch (error) {
+        console.error('Error triggering auto-fetch:', error);
+        res.status(500).json({ error: 'Failed to trigger auto-fetch' });
     }
 });
 

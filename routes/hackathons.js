@@ -2,7 +2,7 @@ const express = require('express');
 const Hackathon = require('../models/hackathon');
 const router = express.Router();
 
-// Get all hackathons with filtering and search
+// Get all hackathons with filtering and search (PUBLIC - for regular users)
 router.get('/', async (req, res) => {
     try {
         const {
@@ -21,9 +21,15 @@ router.get('/', async (req, res) => {
         // Build query
         let query = {};
 
-        // Text search
+        // Text search across multiple fields
         if (search) {
-            query.$text = { $search: search };
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+                { organizer: { $regex: search, $options: 'i' } },
+                { location: { $regex: search, $options: 'i' } },
+                { themes: { $regex: search, $options: 'i' } }
+            ];
         }
 
         // Status filter
