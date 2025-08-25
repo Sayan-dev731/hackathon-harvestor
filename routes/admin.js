@@ -196,6 +196,23 @@ router.post('/test-gemini', async (req, res) => {
 
         console.log(`Testing Gemini service with URL: ${url}`);
 
+        // Get services with error handling
+        let services;
+        try {
+            services = getServices();
+        } catch (serviceError) {
+            return res.status(500).json({
+                error: 'Service initialization failed',
+                details: serviceError.message,
+                troubleshooting: [
+                    'Check that GEMINI_API_KEY or API_KEY environment variable is set',
+                    'Verify the API key is valid'
+                ]
+            });
+        }
+
+        const { geminiService } = services;
+
         // Test the Gemini service directly
         const result = await geminiService.extractHackathonData(url);
 
@@ -225,6 +242,23 @@ router.post('/extract-and-save', async (req, res) => {
         }
 
         console.log(`Extracting and saving hackathon data from URL: ${url}`);
+
+        // Get services with error handling
+        let services;
+        try {
+            services = getServices();
+        } catch (serviceError) {
+            return res.status(500).json({
+                error: 'Service initialization failed',
+                details: serviceError.message,
+                troubleshooting: [
+                    'Check that GEMINI_API_KEY or API_KEY environment variable is set',
+                    'Verify the API key is valid'
+                ]
+            });
+        }
+
+        const { geminiService } = services;
 
         // Extract hackathon data using Gemini
         const result = await geminiService.extractHackathonData(url);

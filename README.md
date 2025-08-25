@@ -28,11 +28,18 @@ A modern, AI-powered hackathon aggregator that automatically discovers and displ
 Create a `.env` file in the root directory with:
 
 ```env
-MONGODB_URI=
+MONGODB_URI=mongodb://localhost:27017/hackathon-aggregator
 GEMINI_API_KEY=your_gemini_api_key_here
 PORT=3000
 DAILY_REQUEST_LIMIT=1000
 ```
+
+**Tip**: Copy `.env.example` to `.env` and update the values:
+```bash
+cp .env.example .env
+```
+
+**Note**: You can use either `GEMINI_API_KEY` or `API_KEY` environment variable.
 
 ### 2. Get Google Gemini API Key
 
@@ -40,6 +47,12 @@ DAILY_REQUEST_LIMIT=1000
 2. Create a new API key
 3. Replace `your_gemini_api_key_here` with your actual API key
 4. **Note**: The system is already configured with a working API key for testing
+
+**Important**: Make sure your API key has the following:
+- Generative AI API enabled in your Google Cloud project
+- Billing enabled for your project
+- Proper permissions for server-side API calls
+- No IP restrictions that would block your server
 
 ### 3. Install Dependencies
 
@@ -54,6 +67,46 @@ npm run dev
 ```
 
 The application will be available at `http://localhost:3000`
+
+## Troubleshooting
+
+### Gemini API Issues
+
+If you encounter a **403 PERMISSION_DENIED** error with message "Method doesn't allow unregistered callers":
+
+1. **Verify API Key Setup**:
+   - Ensure your API key is valid and active
+   - The application supports both `GEMINI_API_KEY` and `API_KEY` environment variables
+   - Check that your `.env` file is properly configured
+
+2. **Google Cloud Project Configuration**:
+   - Enable the **Generative AI API** in your [Google Cloud Console](https://console.cloud.google.com/apis/library/generativeai.googleapis.com)
+   - Ensure **billing is enabled** for your project
+   - Verify your API key has the necessary permissions
+
+3. **API Key Restrictions**:
+   - Check if your API key has IP restrictions that block server-side calls
+   - Ensure the key is not restricted to specific HTTP referrers
+   - Verify the key can be used for server-side applications
+
+4. **Test API Connection**:
+   - Use the admin debug endpoint: `POST /api/admin/debug-gemini`
+   - Check the browser console for detailed error messages
+   - Review server logs for troubleshooting information
+
+5. **Model Availability**:
+   - The application uses `gemini-1.5-flash` model
+   - Ensure this model is available in your region
+   - Check [Google AI Studio](https://aistudio.google.com/) for model availability
+
+### Common Solutions
+
+- **Daily Limits**: Check if you've exceeded daily API request limits
+- **Billing**: Ensure your Google Cloud project has billing enabled
+- **Region**: Some models may not be available in all regions
+- **Permissions**: Verify the API key has access to Generative AI services
+
+For more help, check the server logs and use the `/api/admin/debug-gemini` endpoint for detailed diagnostic information.
 
 ## Usage
 
@@ -137,6 +190,7 @@ For detailed instructions, see [GEMINI_INTEGRATION_GUIDE.md](./GEMINI_INTEGRATIO
 - `POST /api/admin/scrape/:id` - Manual scrape single website
 - `POST /api/admin/scrape-all` - Trigger scraping for all websites
 - `GET /api/admin/api-usage` - Get API usage statistics
+- `POST /api/admin/debug-gemini` - Test Gemini API connection and debug issues
 
 ## Automated Features
 
