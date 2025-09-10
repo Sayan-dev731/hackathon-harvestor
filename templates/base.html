@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hackathon Harvester{% endblock %}</title>
+
+    <!-- GitHub Primer CSS -->
+    <link href="https://unpkg.com/@primer/css@^21.0.0/dist/primer.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+
+    <style>
+        :root {
+            --color-canvas-default: #ffffff;
+            --color-canvas-subtle: #f6f8fa;
+            --color-border-default: #d1d9e0;
+            --color-border-muted: #d1d9e0b3;
+            --color-fg-default: #1f2328;
+            --color-fg-muted: #656d76;
+            --color-accent-fg: #0969da;
+            --color-accent-emphasis: #0969da;
+            --color-danger-fg: #d1242f;
+            --color-success-fg: #1a7f37;
+        }
+
+        [data-color-mode="dark"] {
+            --color-canvas-default: #0d1117;
+            --color-canvas-subtle: #161b22;
+            --color-border-default: #30363d;
+            --color-border-muted: #30363db3;
+            --color-fg-default: #e6edf3;
+            --color-fg-muted: #7d8590;
+            --color-accent-fg: #2f81f7;
+            --color-accent-emphasis: #2f81f7;
+            --color-danger-fg: #f85149;
+            --color-success-fg: #3fb950;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+            background-color: var(--color-canvas-default);
+            color: var(--color-fg-default);
+        }
+
+        .header {
+            background-color: var(--color-canvas-subtle);
+            border-bottom: 1px solid var(--color-border-default);
+            padding: 16px 0;
+        }
+
+        .header-logo {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--color-fg-default);
+            text-decoration: none;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .header-nav a {
+            color: var(--color-fg-default);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .header-nav a:hover {
+            color: var(--color-accent-fg);
+        }
+
+        .main-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--color-fg-default);
+        }
+
+        .page-description {
+            font-size: 16px;
+            color: var(--color-fg-muted);
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background-color: var(--color-canvas-default);
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 5px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 20px;
+            white-space: nowrap;
+            vertical-align: middle;
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-primary {
+            color: #ffffff;
+            background-color: var(--color-accent-emphasis);
+            border-color: var(--color-accent-emphasis);
+        }
+
+        .btn-primary:hover {
+            background-color: #0860ca;
+            border-color: #0860ca;
+        }
+
+        .btn-secondary {
+            color: var(--color-fg-default);
+            background-color: var(--color-canvas-default);
+            border-color: var(--color-border-default);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--color-canvas-subtle);
+        }
+
+        .btn-danger {
+            color: #ffffff;
+            background-color: var(--color-danger-fg);
+            border-color: var(--color-danger-fg);
+        }
+
+        .btn-sm {
+            padding: 3px 12px;
+            font-size: 12px;
+            line-height: 18px;
+        }
+
+        .form-control {
+            padding: 5px 12px;
+            font-size: 14px;
+            line-height: 20px;
+            color: var(--color-fg-default);
+            background-color: var(--color-canvas-default);
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            width: 100%;
+        }
+
+        .form-control:focus {
+            border-color: var(--color-accent-emphasis);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+        }
+
+        .label {
+            font-weight: 600;
+            color: var(--color-fg-default);
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0 7px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 18px;
+            border-radius: 2em;
+            text-transform: uppercase;
+        }
+
+        .status-open {
+            color: #1a7f37;
+            background-color: #dafbe1;
+        }
+
+        .status-closed {
+            color: #d1242f;
+            background-color: #ffebe9;
+        }
+
+        .status-upcoming {
+            color: #8250df;
+            background-color: #fbefff;
+        }
+
+        .hackathon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .hackathon-card {
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            padding: 16px;
+            background-color: var(--color-canvas-default);
+            transition: border-color 0.2s;
+        }
+
+        .hackathon-card:hover {
+            border-color: var(--color-border-muted);
+        }
+
+        .hackathon-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--color-accent-fg);
+            text-decoration: none;
+        }
+
+        .hackathon-title:hover {
+            text-decoration: underline;
+        }
+
+        .hackathon-meta {
+            font-size: 12px;
+            color: var(--color-fg-muted);
+            margin-bottom: 8px;
+        }
+
+        .hackathon-description {
+            font-size: 14px;
+            color: var(--color-fg-default);
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .hackathon-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .tag {
+            font-size: 12px;
+            padding: 2px 8px;
+            background-color: var(--color-canvas-subtle);
+            border: 1px solid var(--color-border-default);
+            border-radius: 12px;
+            color: var(--color-fg-muted);
+        }
+
+        .hackathon-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--color-fg-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--color-fg-muted);
+        }
+
+        .scrape-section {
+            background-color: var(--color-canvas-subtle);
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--color-border-default);
+            border-radius: 6px;
+            padding: 4px 8px;
+            color: var(--color-fg-default);
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 16px;
+            }
+
+            .hackathon-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="container-lg d-flex flex-justify-between flex-items-center px-3">
+            <div class="d-flex flex-items-center">
+                <a href="{{ url_for('index') }}" class="header-logo">
+                    <i class="fas fa-trophy mr-2"></i>Hackathon Harvester
+                </a>
+            </div>
+
+            <nav class="header-nav">
+                <a href="{{ url_for('index') }}">Home</a>
+                <button id="theme-toggle" class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+
+        // Check for saved theme preference or default to 'auto'
+        const savedTheme = localStorage.getItem('theme') || 'auto';
+        html.setAttribute('data-color-mode', savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-color-mode');
+            let newTheme;
+
+            if (currentTheme === 'light') {
+                newTheme = 'dark';
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            } else {
+                newTheme = 'light';
+                themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+            }
+
+            html.setAttribute('data-color-mode', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+
+        // Set initial icon
+        if (savedTheme === 'dark') {
+            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        }
+
+        // Auto-update timestamps
+        function updateTimestamps() {
+            document.querySelectorAll('[data-timestamp]').forEach(element => {
+                const timestamp = new Date(element.dataset.timestamp);
+                const now = new Date();
+                const diff = now - timestamp;
+
+                if (diff < 60000) {
+                    element.textContent = 'just now';
+                } else if (diff < 3600000) {
+                    element.textContent = Math.floor(diff / 60000) + ' minutes ago';
+                } else if (diff < 86400000) {
+                    element.textContent = Math.floor(diff / 3600000) + ' hours ago';
+                } else {
+                    element.textContent = Math.floor(diff / 86400000) + ' days ago';
+                }
+            });
+        }
+
+        updateTimestamps();
+        setInterval(updateTimestamps, 60000); // Update every minute
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

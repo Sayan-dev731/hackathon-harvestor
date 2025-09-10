@@ -1,0 +1,15 @@
+Flask
+pymongo
+python-dotenv
+llama-index
+llama-index-utils-workflow
+llama-index-llms-google-genai
+llama-index-tools-google
+google-generativeai
+Werkzeug
+Jinja2
+MarkupSafe
+itsdangerous
+click
+APScheduler
+schedule
