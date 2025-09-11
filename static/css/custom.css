@@ -143,6 +143,36 @@
     font-weight: 500;
 }
 
+/* Hackathon Title Link */
+.hackathon-title-link {
+    color: var(--color-accent-fg);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease, text-decoration 0.2s ease;
+    position: relative;
+}
+
+.hackathon-title-link:hover {
+    color: var(--color-accent-emphasis);
+    text-decoration: underline;
+}
+
+.hackathon-title-link:visited {
+    color: var(--color-done-fg);
+}
+
+.hackathon-title-link::after {
+    content: "🔍";
+    font-size: 0.8em;
+    margin-left: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.hackathon-title-link:hover::after {
+    opacity: 0.7;
+}
+
 /* Responsive Table */
 @media (max-width: 768px) {
     .table-container {
@@ -431,4 +461,70 @@
     .status-badge {
         border: 1px solid currentColor;
     }
+}
+
+/* Enhanced Hackathon Display */
+.hackathon-info {
+    max-width: 100%;
+}
+
+.hackathon-title {
+    color: var(--color-fg-default);
+    text-decoration: none;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.hackathon-description {
+    margin-top: 4px;
+    line-height: 1.3;
+    color: var(--color-fg-muted);
+}
+
+.font-mono {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 12px;
+}
+
+/* Button hover effects */
+.btn-sm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-danger:hover {
+    background-color: #d1242f;
+    border-color: #d1242f;
+}
+
+/* Table row hover effect */
+.table tbody tr:hover {
+    background-color: var(--color-canvas-subtle);
+    transition: background-color 0.15s ease;
+}
+
+/* Delete button styling */
+.btn-danger {
+    background-color: #da3633;
+    border-color: #da3633;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #b92a27;
+    border-color: #b92a27;
+}
+
+/* Smooth animations */
+.table tbody tr {
+    transition: all 0.15s ease;
+}
+
+/* Empty state improvements */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--color-canvas-subtle);
+    border-radius: 8px;
+    margin: 20px 0;
 }

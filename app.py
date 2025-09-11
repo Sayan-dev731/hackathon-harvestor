@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import asyncio
 from threading import Thread
 import logging
@@ -60,21 +60,22 @@ class HackathonScraper:
             Please extract and return ONLY a valid JSON array with the following format for each hackathon (MAXIMUM {limit} hackathons):
             [
                 {{
-                    "title": "Hackathon Name",
-                    "end_date": "YYYY-MM-DD (registration deadline or event end date)",
-                    "website_url": "Registration/Info URL",
+                    "title": "Exact Hackathon Name",
+                    "end_date": "YYYY-MM-DD (registration deadline or event end date - must be future date)",
+                    "website_url": "EXACT and WORKING registration/info URL - must be complete with https://",
                     "platform": "unstop/devfolio/hackerearth/mlh/other",
-                    "status": "open/closed/upcoming",
-                    "scraped_at": "{datetime.utcnow().isoformat()}"
+                    "status": "open/upcoming",
+                    "description": "Brief description of the hackathon"
                 }}
             ]
             
-            IMPORTANT: 
-            - Return ONLY the most popular hackathons with active registrations
-            - Focus on hackathons with the latest end dates
-            - Return MAXIMUM {limit} hackathons
-            - Sort by end_date (latest first)
-            - Include only hackathons that are currently open or upcoming
+            CRITICAL REQUIREMENTS: 
+            - Return ONLY hackathons that are CURRENTLY ACTIVE or UPCOMING
+            - Ensure ALL website_url values are COMPLETE, EXACT, and WORKING URLs with https://
+            - Verify end_date is in YYYY-MM-DD format and is a FUTURE date
+            - Focus on hackathons with VERIFIED registration links
+            - Include popular hackathons from major platforms like Unstop.com, Devfolio.co, HackerEarth.com
+            - Exclude hackathons that have already ended
             Return only the JSON array, no additional text.
             """
             
@@ -104,27 +105,37 @@ class HackathonScraper:
                 hackathons = hackathons[:limit]
                 
                 # Add metadata and clean data
+                current_date = datetime.now(timezone.utc)
+                valid_hackathons = []
+                
                 for hackathon in hackathons:
-                    hackathon['scraped_at'] = datetime.utcnow()
+                    # Add metadata
+                    hackathon['scraped_at'] = current_date
                     hackathon['source'] = 'gemini_search'
                     
-                    # Ensure end_date is properly formatted
-                    if 'end_date' in hackathon:
+                    # Validate and clean end_date
+                    if 'end_date' in hackathon and hackathon['end_date'] != 'TBD':
                         try:
-                            # Try to parse and reformat the date
+                            # Try to parse and validate the date
                             parsed_date = datetime.strptime(hackathon['end_date'][:10], '%Y-%m-%d')
-                            hackathon['end_date'] = parsed_date.strftime('%Y-%m-%d')
+                            # Only include future hackathons
+                            if parsed_date.date() >= current_date.date():
+                                hackathon['end_date'] = parsed_date.strftime('%Y-%m-%d')
+                                valid_hackathons.append(hackathon)
                         except:
-                            # Keep original if parsing fails
-                            pass
+                            # Skip hackathons with invalid dates
+                            continue
+                    else:
+                        # Include hackathons with TBD dates
+                        valid_hackathons.append(hackathon)
                 
                 # Sort by end_date (latest first)
                 try:
-                    hackathons.sort(key=lambda x: x.get('end_date', ''), reverse=True)
+                    valid_hackathons.sort(key=lambda x: x.get('end_date', '9999-12-31'), reverse=True)
                 except:
                     pass
                     
-                return hackathons
+                return valid_hackathons
             return []
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {str(e)}")
@@ -140,7 +151,7 @@ scraper = HackathonScraper()
 scheduler = BackgroundScheduler()
 
 def automatic_scrape():
-    """Automatically scrape hackathons every 6 hours"""
+    """Automatically scrape hackathons every 6 hours and append new ones"""
     try:
         logger.info("Starting automatic hackathon scraping...")
         
@@ -148,14 +159,31 @@ def automatic_scrape():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
+                # First, remove expired hackathons
+                remove_expired_hackathons()
+                
                 raw_data = loop.run_until_complete(scraper.search_hackathons(limit=10))
                 hackathons = scraper.parse_hackathon_data(raw_data, limit=10)
                 
                 if hackathons:
-                    # Clear old hackathons and insert new ones
-                    hackathons_collection.delete_many({})
-                    hackathons_collection.insert_many(hackathons)
-                    logger.info(f"Automatically scraped and stored {len(hackathons)} hackathons")
+                    # Filter out duplicates based on title and website_url
+                    new_hackathons = []
+                    for hackathon in hackathons:
+                        existing = hackathons_collection.find_one({
+                            "$or": [
+                                {"title": hackathon["title"]},
+                                {"website_url": hackathon.get("website_url")}
+                            ]
+                        })
+                        if not existing:
+                            new_hackathons.append(hackathon)
+                    
+                    if new_hackathons:
+                        # Append only new hackathons
+                        hackathons_collection.insert_many(new_hackathons)
+                        logger.info(f"Automatically scraped and added {len(new_hackathons)} new hackathons")
+                    else:
+                        logger.info("No new hackathons found during automatic scraping")
                 else:
                     logger.warning("No hackathons found during automatic scraping")
             except Exception as e:
@@ -167,6 +195,19 @@ def automatic_scrape():
         
     except Exception as e:
         logger.error(f"Error in automatic_scrape: {str(e)}")
+
+def remove_expired_hackathons():
+    """Remove hackathons that have already ended"""
+    try:
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        # Remove hackathons where end_date is before current date
+        result = hackathons_collection.delete_many({
+            "end_date": {"$lt": current_date, "$ne": "TBD"}
+        })
+        if result.deleted_count > 0:
+            logger.info(f"Removed {result.deleted_count} expired hackathons")
+    except Exception as e:
+        logger.error(f"Error removing expired hackathons: {str(e)}")
 
 # Schedule automatic scraping every 6 hours
 scheduler.add_job(
@@ -194,52 +235,19 @@ initial_thread.start()
 
 @app.route('/')
 def index():
-    """Home page showing top 10 popular hackathons"""
+    """Home page showing all hackathons"""
     try:
-        # Get hackathons sorted by end_date (latest first), limit to 10
-        hackathons = list(hackathons_collection.find().sort("end_date", -1).limit(10))
+        # Remove expired hackathons first
+        remove_expired_hackathons()
+        
+        # Get all hackathons sorted by end_date (latest first)
+        hackathons = list(hackathons_collection.find().sort("end_date", -1))
         for hackathon in hackathons:
             hackathon['_id'] = str(hackathon['_id'])
         return render_template('index.html', hackathons=hackathons)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
         return render_template('index.html', hackathons=[], error="Failed to load hackathons")
-
-@app.route('/scrape', methods=['POST'])
-def scrape_hackathons():
-    """Scrape hackathons endpoint - limited to 10 popular hackathons"""
-    try:
-        query = request.json.get('query', 'popular latest hackathons 2024 2025 unstop devfolio')
-        
-        # Run async function in a new thread
-        def run_scraping():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                raw_data = loop.run_until_complete(scraper.search_hackathons(query, limit=10))
-                hackathons = scraper.parse_hackathon_data(raw_data, limit=10)
-                
-                if hackathons:
-                    # Clear existing hackathons and insert new ones (maintain only 10)
-                    hackathons_collection.delete_many({})
-                    hackathons_collection.insert_many(hackathons)
-                    logger.info(f"Inserted {len(hackathons)} popular hackathons")
-                    return {'success': True, 'count': len(hackathons)}
-                else:
-                    return {'success': False, 'error': 'No popular hackathons found'}
-            except Exception as e:
-                logger.error(f"Scraping error: {str(e)}")
-                return {'success': False, 'error': str(e)}
-            finally:
-                loop.close()
-        
-        # For simplicity, run synchronously (in production, use Celery or similar)
-        result = run_scraping()
-        return jsonify(result)
-        
-    except Exception as e:
-        logger.error(f"Error in scrape endpoint: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/hackathon/<hackathon_id>')
 def view_hackathon(hackathon_id):
@@ -312,11 +320,57 @@ def delete_hackathon(hackathon_id):
         logger.error(f"Error deleting hackathon: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/search/<hackathon_id>')
+def search_hackathon(hackathon_id):
+    """Redirect to Google search with relevant keywords for the hackathon"""
+    try:
+        hackathon = hackathons_collection.find_one({'_id': ObjectId(hackathon_id)})
+        if hackathon:
+            # Generate relevant search keywords
+            keywords = generate_search_keywords(hackathon)
+            # Redirect to Google search
+            google_search_url = f"https://www.google.com/search?q={keywords}"
+            return redirect(google_search_url)
+        else:
+            return redirect(url_for('index'))
+    except Exception as e:
+        logger.error(f"Error in search redirect: {str(e)}")
+        return redirect(url_for('index'))
+
+def generate_search_keywords(hackathon):
+    """Generate relevant search keywords for a hackathon"""
+    import urllib.parse
+    
+    keywords = []
+    
+    # Add hackathon title (most important)
+    if hackathon.get('title'):
+        keywords.append(hackathon['title'])
+    
+    # Add platform for specificity
+    if hackathon.get('platform'):
+        keywords.append(hackathon['platform'])
+    
+    # Add year to get current results
+    current_year = datetime.now().year
+    keywords.append(str(current_year))
+    
+    # Add "hackathon" and "registration" for relevance
+    keywords.extend(['hackathon', 'registration'])
+    
+    # Join keywords and URL encode
+    search_query = ' '.join(keywords)
+    return urllib.parse.quote_plus(search_query)
+
 @app.route('/api/hackathons')
 def api_hackathons():
-    """API endpoint to get top 10 popular hackathons"""
+    """API endpoint to get all active hackathons"""
     try:
-        hackathons = list(hackathons_collection.find().sort("end_date", -1).limit(10))
+        # Remove expired hackathons first
+        remove_expired_hackathons()
+        
+        # Get all hackathons sorted by end_date (latest first)
+        hackathons = list(hackathons_collection.find().sort("end_date", -1))
         for hackathon in hackathons:
             hackathon['_id'] = str(hackathon['_id'])
             # Convert datetime objects to strings
@@ -340,7 +394,7 @@ atexit.register(shutdown_scheduler)
 
 if __name__ == '__main__':
     try:
-        app.run(debug=True, port=5000)
+        app.run(debug=False, port=5000)
     except KeyboardInterrupt:
         logger.info("Shutting down...")
         shutdown_scheduler()
